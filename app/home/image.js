@@ -58,7 +58,7 @@ const ImageScreen = () => {
         if (permission.granted) {
           const asset = await MediaLibrary.createAssetAsync(uri);
           await MediaLibrary.createAlbumAsync('Downloads', asset, false);
-          showToast('Image saved to gallery!');
+          showToast('Image Downloaded');
         } else {
           Alert.alert('Permission Denied', 'You need to grant permission to save the image.');
         }
@@ -212,7 +212,7 @@ const styles = StyleSheet.create({
 
 
 
-  
+
 });
 
 export default ImageScreen;
