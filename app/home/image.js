@@ -61,7 +61,7 @@ const ImageScreen = () => {
           showToast('Image Downloaded');
         } else {
           Alert.alert('Permission Denied', 'You need to grant permission to save the image.');
-        }
+        } 
       }
       setStatus('');
     }
