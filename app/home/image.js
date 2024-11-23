@@ -1,5 +1,5 @@
 import { View, Text, StyleSheet, ActivityIndicator, Pressable, Alert, Platform } from 'react-native';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { BlurView } from 'expo-blur';
 import { hp, wp } from '../../helpers/common';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -11,15 +11,49 @@ import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import * as MediaLibrary from 'expo-media-library';
 import Toast from 'react-native-toast-message';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const ImageScreen = () => {
   const router = useRouter();
   const item = useLocalSearchParams();
   const [status, setStatus] = useState('loading');
+  const [isFavorited, setIsFavorited] = useState(false); // Track favorite status
   let uri = item?.webformatURL;
   const fileName = item?.previewURL?.split('/').pop();
   const imageUrl = uri;
   const filePath = `${FileSystem.documentDirectory}${fileName}`;
+
+  // Check if the image is already favorited when the screen loads
+  useEffect(() => {
+    checkIfFavorite();
+  }, []);
+
+  const checkIfFavorite = async () => {
+    const favorites = await AsyncStorage.getItem('favorites');
+    if (favorites) {
+      const parsedFavorites = JSON.parse(favorites);
+      if (parsedFavorites.find(fav => fav.id === item.id)) {
+        setIsFavorited(true);
+      }
+    }
+  };
+
+  // Add or remove the image from favorites
+  const toggleFavorite = async () => {
+    const favorites = await AsyncStorage.getItem('favorites');
+    let parsedFavorites = favorites ? JSON.parse(favorites) : [];
+
+    if (isFavorited) {
+      parsedFavorites = parsedFavorites.filter(fav => fav.id !== item.id);
+      showToast('Removed from favorites');
+    } else {
+      parsedFavorites.push(item);
+      showToast('Added to favorites');
+    }
+
+    await AsyncStorage.setItem('favorites', JSON.stringify(parsedFavorites));
+    setIsFavorited(!isFavorited);
+  };
 
   const getSize = () => {
     const aspectRatio = item?.imageWidth / item?.imageHeight;
@@ -61,7 +95,7 @@ const ImageScreen = () => {
           showToast('Image Downloaded');
         } else {
           Alert.alert('Permission Denied', 'You need to grant permission to save the image.');
-        } 
+        }
       }
       setStatus('');
     }
@@ -154,6 +188,11 @@ const ImageScreen = () => {
             </Pressable>
           )}
         </Animated.View>
+        <Animated.View entering={FadeInDown.springify().delay(300)}>
+          <Pressable style={styles.button} onPress={toggleFavorite}>
+            <Entypo name={isFavorited ? "heart" : "heart-outlined"} size={22} color="white" />
+          </Pressable>
+        </Animated.View>
       </View>
       <Toast config={toastConfig} position="bottom" visibilityTime={2500} />
     </BlurView>
@@ -208,11 +247,6 @@ const styles = StyleSheet.create({
     fontWeight: theme.fontWeights.semibold,
     color: theme.colors.white,
   },
-
-
-
-
-
 });
 
 export default ImageScreen;
