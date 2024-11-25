@@ -13,8 +13,8 @@ const ProfileScreen = () => {
     <View style={styles.container}>
       <Text style={styles.title}>Profile</Text>
       <View style={styles.details}>
-        <Text style={styles.detailsText}>Name: John Doe</Text>
-        <Text style={styles.detailsText}>Email: john.doe@example.com</Text>
+        <Text style={styles.detailsText}>Name: Shayan</Text>
+        <Text style={styles.detailsText}>Email: shayan123@example.com</Text>
       </View>
       <Button title="Logout" onPress={handleLogout} color={theme.colors.neutral(0.9)} />
     </View>

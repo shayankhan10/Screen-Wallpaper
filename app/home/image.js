@@ -138,7 +138,7 @@ const ImageScreen = () => {
   const toastConfig = {
     success: ({ text1 }) => {
       return (
-        <View style={styles.toast}>
+        <View style={[styles.toast, { marginBottom: hp(6) }]}>
           <Text style={styles.toastText}>{text1}</Text>
         </View>
       );

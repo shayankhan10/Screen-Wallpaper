@@ -1,13 +1,12 @@
 import { View } from 'react-native';
 import React from 'react';
 import { Stack } from 'expo-router';
-import Footer from './components/footer';
+import Footer from '../components/footer'; 
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
-import { useRouter } from 'expo-router';
-
+import { useRouter, usePathname } from 'expo-router'; 
 const Layout = () => {
-  const { pathname } = useRouter();  // Use router to get current path
+  const pathname = usePathname(); 
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
@@ -54,7 +53,7 @@ const Layout = () => {
             />
           </Stack>
 
-          {pathname !== '/welcome' && <Footer />}
+          {pathname !== '/' && <Footer />}
         </View>
       </BottomSheetModalProvider>
     </GestureHandlerRootView>
