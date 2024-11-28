@@ -1,127 +1,132 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, Pressable, StyleSheet, ActivityIndicator, ScrollView } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, Pressable, StyleSheet, ScrollView, Modal, Image, Alert, TouchableWithoutFeedback } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Feather } from '@expo/vector-icons';
-import { Image } from 'expo-image';
-import { MasonryFlashList } from '@shopify/flash-list';
-import * as ImagePicker from 'expo-image-picker';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { wp, hp } from '../../helpers/common';
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { theme } from '../../constants/theme';
-
-const STORAGE_KEY = 'uploaded_images';
-const imagesPerPage = 25;
+import { hp, wp } from '../../helpers/common';
+import * as ImagePicker from 'expo-image-picker';
 
 const UploadScreen = () => {
   const { top } = useSafeAreaInsets();
+  const paddingTop = top > 0 ? top + 10 : 30;
 
-  const [images, setImages] = useState([]);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [isLoading, setIsLoading] = useState(false);
+  // State to handle modal visibility, selected image, and images array
+  const [isModalVisible, setIsModalVisible] = useState(false);
+  const [uploadedImages, setUploadedImages] = useState([]); // State to store all uploaded images
 
-  const scrollRef = useRef(null);
-
-  useEffect(() => {
-    loadImages();
-  }, []);
-
-  useEffect(() => {
-    saveImages();
-  }, [images]);
-
-  const saveImages = async () => {
-    try {
-      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(images));
-    } catch (error) {
-      console.error('Error saving images:', error);
+  // Request permission to access the camera roll
+  const requestGalleryPermission = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert(
+        'Permission required',
+        'We need permission to access your gallery to choose an image.',
+        [{ text: 'OK' }]
+      );
+    } else {
+      pickImageFromGallery();
     }
   };
 
-  const loadImages = async () => {
-    try {
-      const storedImages = await AsyncStorage.getItem(STORAGE_KEY);
-      if (storedImages) {
-        setImages(JSON.parse(storedImages));
-      }
-    } catch (error) {
-      console.error('Error loading images:', error);
-    }
-  };
-
-  const pickImages = async () => {
+  // Pick an image from the gallery
+  const pickImageFromGallery = async () => {
     let result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: false,
+      allowsEditing: true,
       quality: 1,
-      allowsMultipleSelection: true,
     });
 
     if (!result.canceled) {
-      const newImages = result.assets.map((asset) => ({
-        uri: asset.uri,
-        id: Date.now().toString() + Math.random(),
-      }));
-      setImages((prevImages) => [...prevImages, ...newImages]);
+      // Ask for confirmation before adding the image
+      Alert.alert(
+        'Do you want to add this image to your uploaded wallpapers?',
+        '',
+        [
+          {
+            text: 'Cancel',
+            onPress: () => setIsModalVisible(false),
+            style: 'cancel',
+          },
+          {
+            text: 'Add',
+            onPress: () => {
+              setUploadedImages((prevImages) => [...prevImages, result.uri]); // Add image to the uploadedImages array
+              setIsModalVisible(false); // Close modal after adding image
+            },
+          },
+        ]
+      );
+    } else {
+      setIsModalVisible(false); // Close modal if no image was selected
     }
   };
 
-  const loadMoreImages = () => {
-    if (currentPage * imagesPerPage < images.length) {
-      setIsLoading(true);
-      setTimeout(() => {
-        setCurrentPage((prevPage) => prevPage + 1);
-        setIsLoading(false);
-      }, 1000);
-    }
-  };
-
-  const deleteImage = (uri) => {
-    setImages((prevImages) => prevImages.filter((image) => image.uri !== uri));
-  };
-
-  const handleScrollUp = () => {
-    scrollRef?.current?.scrollTo({
-      y: 0,
-      animated: true,
+  // Open the camera to capture an image
+  const openCamera = async () => {
+    let result = await ImagePicker.launchCameraAsync({
+      allowsEditing: true,
+      quality: 1,
     });
+
+    if (!result.canceled) {
+      setUploadedImages((prevImages) => [...prevImages, result.uri]); // Add image to the uploadedImages array
+    }
+    setIsModalVisible(false); // Close modal after taking the picture
+  };
+
+  // Close the modal when tapping outside
+  const closeModal = () => {
+    setIsModalVisible(false);
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingTop }]}>
       {/* Header */}
       <View style={styles.header}>
-        <Pressable onPress={handleScrollUp}>
-          <Text style={styles.title}>
-            <Text style={styles.titleHighlight}>Wall</Text>
-            tastic
-          </Text>
+        <Pressable>
+          <Text style={styles.title}>Walltastic</Text>
         </Pressable>
-        <Pressable style={styles.addButton} onPress={pickImages}>
-          <Feather name="plus" size={15} color="white" />
+        <Pressable onPress={() => setIsModalVisible(true)}>
+          <MaterialIcons name="add-photo-alternate" size={32} color={theme.colors.black} />
         </Pressable>
       </View>
 
       {/* Scrollable Content */}
-      <ScrollView ref={scrollRef} contentContainerStyle={{ flexGrow: 1 }}>
+      <ScrollView contentContainerStyle={{ gap: 15 }}>
         <Text style={styles.heading}>Uploaded Wallpapers</Text>
 
-        <MasonryFlashList
-          data={images.slice(0, currentPage * imagesPerPage)}
-          numColumns={2}
-          renderItem={({ item }) => (
-            <View style={styles.imageWrapper}>
-              <Image style={styles.image} source={{ uri: item.uri }} />
-              <Pressable style={styles.deleteButton} onPress={() => deleteImage(item.uri)}>
-                <Feather name="trash-2" size={16} color="white" />
-              </Pressable>
+        {/* Display uploaded images */}
+        <View style={styles.imageGrid}>
+          {uploadedImages.length > 0 ? (
+            uploadedImages.map((uri, index) => (
+              <View key={index} style={styles.imageContainer}>
+                <Image source={{ uri }} style={styles.uploadedImage} />
+              </View>
+            ))
+          ) : (
+            <View style={styles.centeredMessage}>
+              <Text style={styles.noImageText}>No images uploaded yet.</Text>
             </View>
           )}
-          onEndReached={loadMoreImages}
-          onEndReachedThreshold={0.5}
-          estimatedItemSize={200}
-          ListFooterComponent={isLoading ? <ActivityIndicator size="large" color="#000" /> : null}
-        />
+        </View>
       </ScrollView>
+
+      {/* Modal to choose option */}
+      <Modal visible={isModalVisible} transparent={true} animationType="fade" onRequestClose={closeModal}>
+        <TouchableWithoutFeedback onPress={closeModal}>
+          <View style={styles.modalBackground}>
+            <View style={styles.modalContent}>
+              {/* Modal options */}
+              <Pressable style={styles.button} onPress={requestGalleryPermission}>
+                <Text style={styles.buttonText}>Choose from Gallery</Text>
+              </Pressable>
+              <Pressable style={[styles.button, styles.secondButton]} onPress={openCamera}>
+                <Text style={styles.buttonText}>Open Camera</Text>
+              </Pressable>
+            </View>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
     </View>
   );
 };
@@ -129,14 +134,10 @@ const UploadScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    gap: 5,
-    paddingHorizontal: wp(2.1), // Slightly reduced padding to fit both columns
+    gap: 15,
   },
   header: {
     marginHorizontal: wp(4),
-    marginTop: wp(14),
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.grayBG,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -145,42 +146,67 @@ const styles = StyleSheet.create({
     fontSize: hp(4),
     fontWeight: theme.fontWeights.semibold,
     color: theme.colors.neutral(0.9),
-    textAlign: 'center',
-  },
-  addButton: {
-    backgroundColor: theme.colors.black,
-    padding: wp(2),
-    borderRadius: theme.radius.xs,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   heading: {
     marginHorizontal: wp(4),
-    fontSize: hp(2.8),
-    fontWeight: theme.fontWeights.bold,
-    color: theme.colors.black,
-    marginTop: hp(1.5),
-    marginBottom: hp(1.5),
+    fontWeight: theme.fontWeights.semibold,
+    fontSize: hp(2.5),
   },
-  imageWrapper: {
-    backgroundColor: theme.colors.grayBG,
-    borderRadius: theme.radius.xl,
-    borderCurve: 'continuous',
-    overflow: 'hidden',
-    marginBottom: wp(2.1),
-    marginHorizontal: wp(1.1)
+  imageGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: wp(4),
   },
-  image: {
-    height: 250,
+  imageContainer: {
+    width: wp(45), // Adjust image size here
+    marginBottom: wp(4),
+  },
+  uploadedImage: {
     width: '100%',
+    height: 200,
+    borderRadius: 10,
+    resizeMode: 'cover',
   },
-  deleteButton: {
-    position: 'absolute',
-    top: 10,
-    right: 10,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-    padding: 6,
+  centeredMessage: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    flex: 1, // Take up all the remaining space
+    height: 500, // Optional: Adjust if you want to constrain the message height
+  },
+  noImageText: {
+    fontSize: hp(2),
+    color: theme.colors.neutral(0.7),
+    textAlign: 'center',
+  },
+  modalBackground: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  modalContent: {
+    backgroundColor: 'white',
+    justifyContent: 'center',
+    padding: 25,
     borderRadius: 15,
+    width: 250,
+    alignItems: 'center',
+  },
+  button: {
+    backgroundColor: theme.colors.black,
+    width: '100%',
+    paddingVertical: 12,
+    borderRadius: theme.radius.sm,
+    marginBottom: 12, // Space between buttons
+    alignItems: 'center',
+  },
+  secondButton: {
+    marginBottom: 1.8
+  },
+  buttonText: {
+    color: 'white',
+    fontSize: hp(2.2),
+    fontWeight: theme.fontWeights.semibold,
   },
 });
 
